@@ -22,6 +22,7 @@ import clean
 def matrixConstrain(master, slave, channel=[1,1,1,1], keepInfo=True, mo=False):
     """create a matrix constrain, channel (tr, ro, sc, sh)"""
     
+    # check if the plugin is loaded
     __checkMatrixConstrain__()
     
     # check and create pyNode variable
@@ -40,8 +41,7 @@ def matrixConstrain(master, slave, channel=[1,1,1,1], keepInfo=True, mo=False):
 def createMatrixConstrain(master, slave, channel, keepInfo, mo, calculateMo):
     # create constrain
     previousNode = __checkPreviousConnection__(slave)
-    fine = __createMatrixConstrain__(master, slave, channel, mo, calculateMo)
-    if fine:
+    if __createMatrixConstrain__(master, slave, channel, mo, calculateMo):
         if keepInfo:
             __addInfo__(master, slave, channel, mo)
     else:
