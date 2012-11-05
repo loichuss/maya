@@ -7,7 +7,7 @@
 #
 
 import pymel.core as pmc
-import clean.clean as clean
+import clean
 
 
 def createHierarchy():

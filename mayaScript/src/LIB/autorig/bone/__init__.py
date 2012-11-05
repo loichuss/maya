@@ -7,9 +7,9 @@
 #
 
 import pymel.core as pmc
-import clean.clean as clean
+import clean
 import common.various as various
-import tools.hierarchy as arHierarchy
+import autorig.tools.hierarchy as arHierarchy
 import constrain.matrixConstrain as matrixConstrain
 import rig.bone
 

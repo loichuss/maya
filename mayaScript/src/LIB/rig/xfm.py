@@ -11,7 +11,7 @@ import pymel.core as pmc
 import common.vPrint as vp
 import common.various as various
 import constrain.matrixConstrain as matrixConstrain
-import clean.clean as clean
+import clean
 
 
 def xfm(*args, **kwargs):
