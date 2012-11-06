@@ -31,10 +31,22 @@ import autorig.attribut as arAttribut
 reload(arShapeBiblio)
 
 
+
+
+"""
+ - _TPLjnt   joint for the template
+ - _FBXjnt   joint for the mocap
+ - _2SKjnt   joint in the Rig
+ - _SKNjnt   joint wich should be skinned
+"""
+
 def decorator(attempt):
     def wrapper(func):
         def wrapped(arg):
-            result = func(arg)
+            # create hierarchy group
+            hierarchy = arHierarchy.createHierarchy()
+
+            result = func(arg, hierarchy)
             return result   
         return wrapped
     return wrapper
@@ -44,112 +56,183 @@ def decorator(attempt):
 
 
 
-class fk():
-    def __init__(self, name, bones, parent=None, autoHierarchy=False, upVect=dt.Vector(0,1,0), upObj=None, colorOne=17, colorTwo=21):
+class fk(object):
+    def __init__(self, name, bones, parent=None, up=dt.Vector(0,1,0), colorOne=17, colorTwo=21):
         
-        """Create an fk joints module
+        """
+        Create an fk joints module
             - name           : the name for the module
             - bones          : a list of bone (could be a pymel object or a string)
-            - parent         : the father of the module
-            - autoHierarchy  : get each children of the given bone
-            - upVect         : the up vector to have the proper orientation
-            - upObj          : as well use to create the proper orientation but thanks to the position of an object
+            - parent         : the father of the module (could be a pymel object or a string)
+            - up             : the up vector to have the proper orientation (could be an array or a dt.Vector class or a pymel object or a string)
             - colorOne       : the color of the shape
             - colorTwo       : the color of the sub shape
-            """
-        
-        #                           #
-        #   check input variables   #
-        #                           #
-        
-        
-        # use to see if each object given are joint type
-        self.check = True
-        
-        # bones
-        if (isinstance(bones, list))==False:
-            bones = [bones]
-        for i in range(len(bones)):
-            # check object
-            bones[i] = various.checkObj(bones[i], type=['joint'])
-            if bones[i]==None:
-                self.check = False
-        
-        
-        # up vector
-        if upObj == None:
-            if (isinstance(upVect, dt.Vector))==False:
-                try :
-                    upVect = dt.Vector(upVect)
-                except:
-                    vp.vPrint('%s is not a vector' % upVect, 1)
-                    self.check = False
-        
-        # up object
-        if upObj:
-            upObj = various.checkObj(upObj, type=['joint'])
-            if upObj==None:
-                self.check = False
-            else:
-                # rename properly
-                if various.renameObject(upObj, prefix='_TPLjnt')==False:
-                    self.check = False
+        """
                 
         
+        # use to see if each object given are joint type
+        self.check       = True
+        self.name        = name
+        self.colorOne    = colorOne
+        self.colorTwo    = colorTwo
+        self._bones      = {}
+        self._parent     = None
+        self._up         = None
+        
+        
+        # check bones parent and up
+        self.bones       = bones
+        self.parent      = parent
+        self.up          = up
+        
+        
+        # keep variable
+        self.gp          = {}
+        self.offset      = []
+        
+
+
+
+
+    #             #
+    #  BONES TPL  #
+    #             #
+    
+    @property
+    def bones(self):
+        return self._bones['TPL']
+
+    @bones.setter
+    def bones(self, bones):
+        """check if the bones that we receive are available"""
+        
+        # create the dictionary
+        self._bones['TPL'] = []
+        
+        # create a list is we got only one element
+        if (isinstance(bones, list))==False:
+            bones = [bones]
+            
+
+        for i in range(len(bones)):
+            # check object
+            tmp = various.checkObj(bones[i], type=['joint'])
+            
+            if tmp!=None:
+                self._bones['TPL'].append(tmp)
+            else:
+                vp.vPrint('template does\'nt exist %s, skip' % (bones[i]), 1)
+                self.check = False
+                
+        # rename properly the template
+        self.renameTemplate()
+        
+    @bones.deleter
+    def bones(self):
+        self._bones['TPL'] = []
+    
+    
+    
+    
+    
+    
+    #            #
+    #   PARENT   #
+    #            #
+    
+    @property
+    def parent(self):
+        return self._parent
+
+    @parent.setter
+    def parent(self, parent):
         # parent object if given
         if parent:
-            parent = various.checkObj(parent, type=['transform', 'joint'])
-            if parent==None:
+            self._parent = various.checkObj(parent, type=['transform', 'joint'])
+            if self._parent==None:
                 self.check = False
+            
+    @parent.deleter
+    def parent(self):
+        self._parent = None
+
+
+
+
+        
+    #            #
+    #     UP     #
+    #            #
+    
+    @property
+    def up(self):
+        return self._up
+    
+    @up.setter
+    def up(self, up):
+        
+        # if the given variable seems to be a vector
+        if (isinstance(up, dt.Vector))==True:
+            self._up = up
+            return
+        
+        if (isinstance(up, list))==True:
+            try :
+                self._up = dt.Vector(up)
+            except:
+                vp.vPrint('%s is not a vector' % up, 1)
+                self.check = False
+            return
         
         
-        # create automatic hierarchy if desire
-        if self.check:
-            if autoHierarchy:
-                bones = various.listChildrenByType(bones[0], type=['joint'])
-                if len(bones[0].getChildren()) > 1:
-                    tmp = bones[0].getChildren()[1]
-                    if various.checkObj(tmp, type=['joint'], echo=False):
-                        upObj = tmp
-        
-        
-        # create vector according to object up
-        if upObj:
-            upVect = (upObj.getTranslation(space='world') - bones[0].getTranslation(space='world'))
-            upVect.normalize() 
-        
-        # rename template if badly done
-        if self.check:
-            for i in range(len(bones)):
+        # if the given variable seems to be an object
+        if (isinstance(up, str))==True:
+            up = various.checkObj(up, type=['joint'])
+            if up==None:
+                self.check = False
+                return
+            else:
                 # rename properly
-                if not various.renameObject(bones[i], prefix='_TPLjnt'):
+                if various.renameObject(up, prefix='_TPLjnt')==False:
                     self.check = False
+                    return
+                
+        # create vector according to object up
+        if up:
+            if len(self._bones['TPL']):
+                self._up = (up.getTranslation(space='world') - self._bones['TPL'][0].getTranslation(space='world'))
+                self._up.normalize()
+
+    @up.deleter
+    def up(self):
+        self._up = None
+
+    
+    
+    
+    
+    #                #
+    #  RENAME TOOLS  #
+    #                #
+    
+    def renameTemplate(self):
+        # rename template if badly done
+        for i in range(len(self._bones['TPL'])):
+            # rename properly
+            if not various.renameObject(self._bones['TPL'][i], prefix='_TPLjnt'):
+                self.check = False
 
 
-        # keep variable
-        if self.check:
-            # self part       
-            self.bonesTPL = bones
-            self.name     = name
-            self.parent   = parent
-            self.upVect   = upVect
-            self.colorOne = colorOne
-            self.colorTwo = colorTwo
-            
-            # list for each 2SK bones
-            self.bones2SK = []
-            self.gp       = {}
-            self.offset   = []
-            
-            
-        else:
-            vp.vPrint('building %s will failed' % name, 1)
-        
-    
-    
-    
+
+
+
+    #           #
+    #   BUILD   #
+    #           #
+
+
     @decorator(True)
-    def build(self):
+    def build(self, hierarchy):
         """build FK"""
         
         if not self.check:
@@ -169,9 +252,10 @@ class fk():
         """
         
         # create hierarchy group
-        hierarchy = arHierarchy.createHierarchy()
+        print hierarchy
+        #hierarchy = arHierarchy.createHierarchy()
         
-        
+        """
         # create main group then parent it
         self.gp['main'] = pmc.createNode('transform', name=self.name+'_grp')
         if self.parent:
@@ -260,13 +344,13 @@ class fk():
         
         # deselect
         pmc.select(clear=True)
-        
+        """
             
         
         
 
-
-
+toto = fk(name='myJnt', bones=['joint1_TPLjnt', 'joint2_TPLjnt', 'joint3_TPLjnt', 'joint4_TPLjnt', 'joint5_TPLjnt'], up='joint6_TPLjnt')
+toto.up
 """
 
 #toto = fk(name='myJnt', bones=[pmc.PyNode('joint1_TPLjnt'), pmc.PyNode('joint2_TPLjnt'), pmc.PyNode('joint3_TPLjnt'), pmc.PyNode('joint4_TPLjnt')])
