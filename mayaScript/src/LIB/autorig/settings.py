@@ -15,15 +15,16 @@ import autorig.tools.hierarchy as arHierarchy
 #   VARIABLE   #
 #              #
 
-RIG   = 'RIG'
-TPL   = 'TPL'
-TSK   = '2SK'
-SKN   = 'SKN'
-BONES = {
-         RIG:[],
-         TPL:[],
-         TSK:[],
-         }
+RIG      = 'RIG'
+TPL      = 'TPL'
+TSK      = '2SK'
+SKN      = 'SKN'
+TPL_NAME = '_TPLjnt'
+BONES    = {
+            RIG:[],
+            TPL:[],
+            TSK:[],
+            }
 
 
 
