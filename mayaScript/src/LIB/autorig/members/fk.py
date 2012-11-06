@@ -13,18 +13,17 @@ import common.vPrint as vp
 import common.various as various
 
 import rig.matrix
-import rig.bone as bone
 import rig.xfm as xfm
 import rig.attribut as attribut
-import constrain.matrixConstrain as matrixConstrain
 import clean
 
 import autorig.shape.biblio as arShapeBiblio
 import autorig.shape as arShape
 import autorig.bone as arBone
-import autorig.tools.hierarchy as arHierarchy
 import autorig.tools.pickwalk as arPickwalk
-import autorig.attribut as arAttribut
+from autorig.settings import *
+
+import copy
 
 
 
@@ -39,18 +38,6 @@ reload(arShapeBiblio)
  - _2SKjnt   joint in the Rig
  - _SKNjnt   joint wich should be skinned
 """
-
-def decorator(attempt):
-    def wrapper(func):
-        def wrapped(arg):
-            # create hierarchy group
-            hierarchy = arHierarchy.createHierarchy()
-
-            result = func(arg, hierarchy)
-            return result   
-        return wrapped
-    return wrapper
-
 
 
 
@@ -75,10 +62,10 @@ class fk(object):
         self.name        = name
         self.colorOne    = colorOne
         self.colorTwo    = colorTwo
-        self._bones      = {}
         self._parent     = None
         self._up         = None
-        
+        self._bones      = copy.copy(BONES)
+
         
         # check bones parent and up
         self.bones       = bones
@@ -100,14 +87,14 @@ class fk(object):
     
     @property
     def bones(self):
-        return self._bones['TPL']
+        return self._bones[TPL]
 
     @bones.setter
     def bones(self, bones):
         """check if the bones that we receive are available"""
         
         # create the dictionary
-        self._bones['TPL'] = []
+        self._bones[TPL] = []
         
         # create a list is we got only one element
         if (isinstance(bones, list))==False:
@@ -119,7 +106,7 @@ class fk(object):
             tmp = various.checkObj(bones[i], type=['joint'])
             
             if tmp!=None:
-                self._bones['TPL'].append(tmp)
+                self._bones[TPL].append(tmp)
             else:
                 vp.vPrint('template does\'nt exist %s, skip' % (bones[i]), 1)
                 self.check = False
@@ -129,7 +116,7 @@ class fk(object):
         
     @bones.deleter
     def bones(self):
-        self._bones['TPL'] = []
+        self._bones[TPL] = []
     
     
     
@@ -193,14 +180,14 @@ class fk(object):
                 return
             else:
                 # rename properly
-                if various.renameObject(up, prefix='_TPLjnt')==False:
+                if various.renameObject(up, prefix=TPL_NAME)==False:
                     self.check = False
                     return
                 
         # create vector according to object up
         if up:
-            if len(self._bones['TPL']):
-                self._up = (up.getTranslation(space='world') - self._bones['TPL'][0].getTranslation(space='world'))
+            if len(self._bones[TPL]):
+                self._up = (up.getTranslation(space='world') - self._bones[TPL][0].getTranslation(space='world'))
                 self._up.normalize()
 
     @up.deleter
@@ -217,9 +204,9 @@ class fk(object):
     
     def renameTemplate(self):
         # rename template if badly done
-        for i in range(len(self._bones['TPL'])):
+        for i in range(len(self._bones[TPL])):
             # rename properly
-            if not various.renameObject(self._bones['TPL'][i], prefix='_TPLjnt'):
+            if not various.renameObject(self._bones[TPL][i], prefix=TPL_NAME):
                 self.check = False
 
 
@@ -237,7 +224,7 @@ class fk(object):
         
         if not self.check:
             vp.vPrint('missing or wrong data in module, skip building process', 1)
-            return None
+            return False
         
         
         """
@@ -249,13 +236,13 @@ class fk(object):
         
         rajout des shapes dans les sets
         
-        """
         
-        # create hierarchy group
-        print hierarchy
-        #hierarchy = arHierarchy.createHierarchy()
+        - creation d'un group parent
+        - 
         
         """
+        
+        
         # create main group then parent it
         self.gp['main'] = pmc.createNode('transform', name=self.name+'_grp')
         if self.parent:
@@ -269,64 +256,66 @@ class fk(object):
         
         
         # create bones
-        self.jnts = []
-        for i in range(len(self.bonesTPL)-1):
+        self._bones[RIG] = []
+        self._bones[TSK] = []
+        for i in range(len(self._bones[TPL])-1):
+            
             # create joint
-            self.jnts.append( pmc.createNode('joint', name=self.bonesTPL[i].replace('_TPLjnt', '') ) )
-            self.jnts[i].setTransformation ( rig.matrix.vecToMat( dir=(self.bonesTPL[i+1].getTranslation(space='world') - self.bonesTPL[i].getTranslation(space='world')), up=self.upVect, pos=self.bonesTPL[i].getTranslation(space='world'), order='xyz' ) )
-            rig.bone.__rotateToOrient__(self.jnts[i])
+            self._bones[RIG].append( pmc.createNode('joint', name=self._bones[TPL][i].replace(TPL_NAME, '') ) )
+            self._bones[RIG][i].setTransformation ( rig.matrix.vecToMat( dir=(self._bones[TPL][i+1].getTranslation(space='world') - self._bones[TPL][i].getTranslation(space='world')), up=self.up, pos=self._bones[TPL][i].getTranslation(space='world'), order='xyz' ) )
+            rig.bone.__rotateToOrient__(self._bones[RIG][i])
             
             # set parent 
             if i:
-                self.jnts[i].setParent( self.jnts[i-1] )
+                self._bones[RIG][i].setParent( self._bones[RIG][i-1] )
             else:
-                self.jnts[i].setParent( self.gp['main'] )
+                self._bones[RIG][i].setParent( self.gp['main'] )
             
             
             # add shape to joint
             if i:
-                tmp = arShapeBiblio.cube(name=self.jnts[i], color=self.colorOne)
+                tmp = arShapeBiblio.cube(name=self._bones[RIG][i], color=self.colorOne)
             else:
-                tmp = arShapeBiblio.cubeCircle(name=self.jnts[i], color=self.colorOne)
-            pmc.parent(tmp.getShape(), self.jnts[i], shape=True, relative=True)
+                tmp = arShapeBiblio.cubeCircle(name=self._bones[RIG][i], color=self.colorOne)
+            pmc.parent(tmp.getShape(), self._bones[RIG][i], shape=True, relative=True)
             pmc.delete(tmp)
             
             # scale shape
-            arShape.scaleShape(self.jnts[i].getShape(), self.jnts[i], self.bonesTPL[i+1])
+            arShape.scaleShape(self._bones[RIG][i].getShape(), self._bones[RIG][i], self._bones[TPL][i+1])
     
             # clean channel box
-            self.jnts[i].rotateOrder.setKeyable(True)
-            clean.__lockHideTransform__(self.jnts[i], channel=['v', 'radi'])
+            self._bones[RIG][i].rotateOrder.setKeyable(True)
+            clean.__lockHideTransform__(self._bones[RIG][i], channel=['v', 'radi'])
             
             # add xfm
-            xfm.__xfm__(self.jnts[i], type='joint')
+            xfm.__xfm__(self._bones[RIG][i], type='joint')
             
             # add offset
-            self.offset.append( arShapeBiblio.rhombusX(name=self.jnts[i]+'_off', color=self.colorTwo, parent=self.jnts[i]) )
-            self.bones2SK.append( bone.create2SK(self.jnts[i].name(), self.offset[i]) )
+            self.offset.append( arShapeBiblio.rhombusX(name=self._bones[RIG][i]+'_off', color=self.colorTwo, parent=self._bones[RIG][i]) )
+            self._bones[TSK].append( arBone.create2SK(self._bones[RIG][i].name(), self.offset[i]) )
         
         
         # create attribut
-        attribut.addAttrSeparator(self.jnts[0])
-        pmc.addAttr(self.jnts[0], longName='offsetVisible', attributeType='enum', enumName='No:Yes', keyable=False, hidden=False)
-        self.jnts[0].offsetVisible.showInChannelBox(True)
+        attribut.addAttrSeparator(self._bones[RIG][0])
+        pmc.addAttr(self._bones[RIG][0], longName='offsetVisible', attributeType='enum', enumName='No:Yes', keyable=False, hidden=False)
+        self._bones[RIG][0].offsetVisible.showInChannelBox(True)
         
         for i in range(len(self.offset)):
             self.offset[i].visibility.setLocked(False)
-            self.jnts[0].offsetVisible >> self.offset[i].visibility
+            self._bones[RIG][0].offsetVisible >> self.offset[i].visibility
             self.offset[i].visibility.setLocked(True)
         
         
         # connect 2SKjnt together
-        bone.__connect2SK__(self.bones2SK)
+        arBone.__connect2SK__(self._bones[TSK])
         
         # pickwalk attribut
-        arPickwalk.setPickWalk(self.jnts, type='UD')
+        arPickwalk.setPickWalk(self._bones[RIG], type='UD')
         arPickwalk.setPickWalk(self.offset, type='UD')
         
         alternate = []
-        for i in range(len(self.jnts)):
-            alternate.append(self.jnts[i])
+        for i in range(len(self._bones[RIG])):
+            alternate.append(self._bones[RIG][i])
             alternate.append(self.offset[i])
         arPickwalk.setPickWalk(alternate, type='LR')
         
@@ -334,7 +323,7 @@ class fk(object):
         # add into CONTROLS sets
         pmc.select(clear=True)
         set = pmc.sets(name=self.name+'_ctrls')
-        pmc.sets(set, addElement=self.jnts)
+        pmc.sets(set, addElement=self._bones[RIG])
         pmc.sets(hierarchy['CONTROLS'], addElement=set)
         
         setSub = pmc.sets(name=self.name+'Sub_ctrls')
@@ -344,13 +333,13 @@ class fk(object):
         
         # deselect
         pmc.select(clear=True)
-        """
+        
             
         
         
 
 toto = fk(name='myJnt', bones=['joint1_TPLjnt', 'joint2_TPLjnt', 'joint3_TPLjnt', 'joint4_TPLjnt', 'joint5_TPLjnt'], up='joint6_TPLjnt')
-toto.up
+toto.build()
 """
 
 #toto = fk(name='myJnt', bones=[pmc.PyNode('joint1_TPLjnt'), pmc.PyNode('joint2_TPLjnt'), pmc.PyNode('joint3_TPLjnt'), pmc.PyNode('joint4_TPLjnt')])
