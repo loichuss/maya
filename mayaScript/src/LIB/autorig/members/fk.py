@@ -27,20 +27,6 @@ import copy
 
 
 
-reload(arShapeBiblio)
-
-
-
-
-"""
- - _TPLjnt   joint for the template
- - _FBXjnt   joint for the mocap
- - _2SKjnt   joint in the Rig
- - _SKNjnt   joint wich should be skinned
-"""
-
-
-
 
 
 class fk(object):
@@ -75,7 +61,6 @@ class fk(object):
         
         # keep variable
         self.gp          = {}
-        self.offset      = []
         
 
 
@@ -228,18 +213,15 @@ class fk(object):
         
         
         """
-        Truc a cacher ou a locker trouver un system
+        Truc a cacher ou a locker trouver un system               : le faire petit a petit
         
-        creation de la hierachy pour faire la selection rapide
+        creation de la hierachy pour faire la selection rapide    : decorateur
         
-        connection des bones 2sk ensemble
+        connection des bones 2sk ensemble                         
         
-        rajout des shapes dans les sets
-        
+        rajout des shapes dans les sets                           : decorateur
         
         - creation d'un group parent
-        - 
-        
         """
         
         
@@ -256,78 +238,88 @@ class fk(object):
         
         
         # create bones
-        self._bones[RIG] = []
+        self._bones[RIG] = {'main':[], 'off':[]}
         self._bones[TSK] = []
-        for i in range(len(self._bones[TPL])-1):
+        for i in range(len(self._bones[TPL])):
             
             # create joint
-            self._bones[RIG].append( pmc.createNode('joint', name=self._bones[TPL][i].replace(TPL_NAME, '') ) )
-            self._bones[RIG][i].setTransformation ( rig.matrix.vecToMat( dir=(self._bones[TPL][i+1].getTranslation(space='world') - self._bones[TPL][i].getTranslation(space='world')), up=self.up, pos=self._bones[TPL][i].getTranslation(space='world'), order='xyz' ) )
-            rig.bone.__rotateToOrient__(self._bones[RIG][i])
+            self._bones[RIG]['main'].append( pmc.createNode('joint', name=self._bones[TPL][i].replace(TPL_NAME, '') ) )
+            if i < (len(self._bones[TPL])-1):
+                print 't', i
+                self._bones[RIG]['main'][i].setTransformation( rig.matrix.vecToMat( dir=(self._bones[TPL][i+1].getTranslation(space='world') - self._bones[TPL][i].getTranslation(space='world')), up=self.up, pos=self._bones[TPL][i].getTranslation(space='world'), order='xyz' ) )
+            else:
+                self._bones[RIG]['main'][i].setTransformation( rig.matrix.vecToMat( dir=(self._bones[TPL][i].getTranslation(space='world') - self._bones[TPL][i-1].getTranslation(space='world')), up=self.up, pos=self._bones[TPL][i].getTranslation(space='world'), order='xyz' ) )
+
+            rig.bone.__rotateToOrient__(self._bones[RIG]['main'][i])
             
             # set parent 
             if i:
-                self._bones[RIG][i].setParent( self._bones[RIG][i-1] )
+                self._bones[RIG]['main'][i].setParent( self._bones[RIG]['main'][i-1] )
             else:
-                self._bones[RIG][i].setParent( self.gp['main'] )
+                self._bones[RIG]['main'][i].setParent( self.gp['main'] )
             
             
             # add shape to joint
-            if i:
-                tmp = arShapeBiblio.cube(name=self._bones[RIG][i], color=self.colorOne)
-            else:
-                tmp = arShapeBiblio.cubeCircle(name=self._bones[RIG][i], color=self.colorOne)
-            pmc.parent(tmp.getShape(), self._bones[RIG][i], shape=True, relative=True)
-            pmc.delete(tmp)
+            tmp = None
+            if i==0:
+                tmp = arShapeBiblio.cubeCircle(name=self._bones[RIG]['main'][i], color=self.colorOne)
+            elif i < (len(self._bones[TPL])-1):
+                    print 'b', i
+                    tmp = arShapeBiblio.cube(name=self._bones[RIG]['main'][i], color=self.colorOne)
+
             
-            # scale shape
-            arShape.scaleShape(self._bones[RIG][i].getShape(), self._bones[RIG][i], self._bones[TPL][i+1])
+            if tmp:    
+                pmc.parent(tmp.getShape(), self._bones[RIG]['main'][i], shape=True, relative=True)
+                pmc.delete(tmp)
+                
+                # scale shape
+                arShape.scaleShape(self._bones[RIG]['main'][i].getShape(), self._bones[RIG]['main'][i], self._bones[TPL][i+1])
     
             # clean channel box
-            self._bones[RIG][i].rotateOrder.setKeyable(True)
-            clean.__lockHideTransform__(self._bones[RIG][i], channel=['v', 'radi'])
+            self._bones[RIG]['main'][i].rotateOrder.setKeyable(True)
+            clean.__lockHideTransform__(self._bones[RIG]['main'][i], channel=['v', 'radi'])
             
             # add xfm
-            xfm.__xfm__(self._bones[RIG][i], type='joint')
+            xfm.__xfm__(self._bones[RIG]['main'][i], type='joint')
             
             # add offset
-            self.offset.append( arShapeBiblio.rhombusX(name=self._bones[RIG][i]+'_off', color=self.colorTwo, parent=self._bones[RIG][i]) )
-            self._bones[TSK].append( arBone.create2SK(self._bones[RIG][i].name(), self.offset[i]) )
+            self._bones[RIG]['off'].append( arShapeBiblio.rhombusX(name=self._bones[RIG]['main'][i]+'_off', color=self.colorTwo, parent=self._bones[RIG]['main'][i]) )
+            self._bones[TSK].append( arBone.create2SK(self._bones[RIG]['main'][i].name(), self._bones[RIG]['off'][i]) )
         
         
         # create attribut
-        attribut.addAttrSeparator(self._bones[RIG][0])
-        pmc.addAttr(self._bones[RIG][0], longName='offsetVisible', attributeType='enum', enumName='No:Yes', keyable=False, hidden=False)
-        self._bones[RIG][0].offsetVisible.showInChannelBox(True)
+        attribut.addAttrSeparator(self._bones[RIG]['main'][0])
+        pmc.addAttr(self._bones[RIG]['main'][0], longName='offsetVisible', attributeType='enum', enumName='No:Yes', keyable=False, hidden=False)
+        self._bones[RIG]['main'][0].offsetVisible.showInChannelBox(True)
         
-        for i in range(len(self.offset)):
-            self.offset[i].visibility.setLocked(False)
-            self._bones[RIG][0].offsetVisible >> self.offset[i].visibility
-            self.offset[i].visibility.setLocked(True)
+        for i in range(len(self._bones[RIG]['off'])):
+            self._bones[RIG]['off'][i].visibility.setLocked(False)
+            self._bones[RIG]['main'][0].offsetVisible >> self._bones[RIG]['off'][i].visibility
+            self._bones[RIG]['off'][i].visibility.setLocked(True)
         
         
         # connect 2SKjnt together
         arBone.__connect2SK__(self._bones[TSK])
         
         # pickwalk attribut
-        arPickwalk.setPickWalk(self._bones[RIG], type='UD')
-        arPickwalk.setPickWalk(self.offset, type='UD')
+        arPickwalk.setPickWalk(self._bones[RIG]['main'], type='UD')
+        arPickwalk.setPickWalk(self._bones[RIG]['off'], type='UD')
         
         alternate = []
-        for i in range(len(self._bones[RIG])):
-            alternate.append(self._bones[RIG][i])
-            alternate.append(self.offset[i])
+        for i in range(len(self._bones[RIG]['main'])):
+            alternate.append(self._bones[RIG]['main'][i])
+            alternate.append(self._bones[RIG]['off'][i])
         arPickwalk.setPickWalk(alternate, type='LR')
         
         
         # add into CONTROLS sets
         pmc.select(clear=True)
         set = pmc.sets(name=self.name+'_ctrls')
-        pmc.sets(set, addElement=self._bones[RIG])
+        pmc.sets(set, addElement=self._bones[RIG]['main'])
         pmc.sets(hierarchy['CONTROLS'], addElement=set)
         
         setSub = pmc.sets(name=self.name+'Sub_ctrls')
-        pmc.sets(setSub, addElement=self.offset)
+        pmc.sets(setSub, addElement=self._bones[RIG]['off'])
         pmc.sets(set, addElement=setSub)
         
         
