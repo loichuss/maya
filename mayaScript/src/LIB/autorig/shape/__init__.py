@@ -60,7 +60,9 @@ def positionShape(shape, position, offset=[0,0,0]):
             position = dt.Vector(position)
     
     # get difference between the parent of the shape and the global position
-    pmc.move(various.getAtoms(shape, flat=True), position - pmc.PyNode(shape).getParent().getTranslation(space='world'), relative=True)
+    move = position - pmc.PyNode(shape).getParent().getTranslation(space='world')
+    for vert in various.getAtoms(shape, flat=True):
+        pmc.move(vert, move, relative=True)
 
 
 
