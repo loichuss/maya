@@ -8,20 +8,24 @@
 
 
 import pymel.core as pmc
+import common.vPrint as vp
 import autorig.tools.hierarchy as arHierarchy
-
 
 
 #              #
 #   VARIABLE   #
 #              #
 
-TPL_NAME = '_TPLjnt'
-BONES    = {
-            'RIG':{},
-            'TPL':[],
-            '2SK':[],
-            }
+TPL_NAME     = '_TPL'
+TPL_NAME_JNT = TPL_NAME+'jnt'
+TPL_NAME_PVT = '_PVT'
+
+STRUCT = {
+          'GRP':{},
+          'RIG':{},
+          'TPL':{},
+          '2SK':[],
+          }
 
 
 
@@ -30,44 +34,62 @@ BONES    = {
 #              #
 
 def completion():
-    def wrapper(func):
-        def wrapped(arg):
+    def wrapper(method):
+        def wrapped(self, *args, **kwargs):
             
+            # check if the module can be created
+            if not self.check:
+                vp.vPrint('missing or wrong data in module, skip building process', 1)
+                return False
+    
             # create hierarchy group
-            hierarchy = arHierarchy.createHierarchy()
+            kwargs['hierarchy'] = arHierarchy.createHierarchy()
             
-            _work = {
+            kwargs['framework'] = {
                      'CONTROLS': {},
                      'PICK':     {},
                      }
+            #args.append(hierarchy, _work)
+            result = method(self, *args, **kwargs)
             
-            result = func(arg, hierarchy, _work)
+            # unselect everything
+            pmc.select(clear=True)
+
+
+            if not result:
+                return result
             
-            
+
             #              #
             #  Create Set  #
             #              #
             
-            # unselect everything
-            pmc.select(clear=True)
             
             # loop per set
-            for elts in sorted(_work['CONTROLS']):
+            for elts in sorted(kwargs['framework']['CONTROLS'].keys()):
                 
-                # create and fill the set
-                elt = elts.split('|')
-                set = pmc.sets(name=elt[-1])
-                pmc.sets(set, addElement=_work['CONTROLS'][elts])
-                
-                # parent the set
-                if len(elt)==1:
-                    pmc.sets(hierarchy['CONTROLS'], addElement=set)
+                if elts == '':
+                    pmc.sets(kwargs['hierarchy']['CONTROLS'], addElement=kwargs['framework']['CONTROLS'][elts])
                 else:
-                    pmc.sets(elt[-2], addElement=set)
-                
+                    # create and fill the set
+                    elt = elts.split('|')
+                    set = pmc.sets(name=elt[-1])
+                    pmc.sets(set, addElement=kwargs['framework']['CONTROLS'][elts])
+                    
+                    # parent the set
+                    if len(elt)==1:
+                        pmc.sets(kwargs['hierarchy']['CONTROLS'], addElement=set)
+                    else:
+                        pmc.sets(elt[-2], addElement=set)
+            
+            
+            
+            
+            # unselect
+            pmc.select(clear=True)
+            
             
             return result   
         return wrapped
     return wrapper
-
 
