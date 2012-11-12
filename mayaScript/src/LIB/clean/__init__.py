@@ -91,7 +91,7 @@ def __lockHideTransform__(obj, lock=True, hide=True, channel=['t', 'r', 's', 'v'
         attrs = pmc.listAttr(obj, keyable=True)
         attrs.extend(pmc.listAttr(obj, channelBox=True))
         for attr in attrs:
-            tmp = pmc.PyNode(obj+'.'+attr).firstParent()
+            tmp = pmc.PyNode(obj+'.'+attr).getParent()
             if tmp:
                 if tmp.shortName() not in chNew:
                     chNew.append(tmp.shortName())
