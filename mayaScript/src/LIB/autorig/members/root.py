@@ -3,28 +3,23 @@
 #   Version 1.0
 #   Last Modification 06 dec 2011
 #
-#   root
+#   Root Module
 #
 
-import pymel.core as pmc
-import pymel.core.datatypes as dt
 import math
+import copy
+import pymel.core.datatypes as dt
 
-import common.vPrint as vp
 import common.various as various
 import constrain.matrixConstrain as matrixConstrain
 import rig.xfm as xfm
-import clean
 
 import autorig.shape.biblio as arShapeBiblio
 import autorig.shape as arShape
-import autorig.tools.hierarchy as arHierarchy
 import autorig.tools.pickwalk as arPickwalk
-import autorig.attribut as arAttribut
-
 import autorig.settings as arParam
 
-import copy
+
 
 class root(object):
     def __init__(self, main, walk, pivot, color=17):
@@ -217,13 +212,13 @@ class root(object):
         
         # create pick walk
         arPickwalk.setPickWalk(hierarchy['SCALEOFFSET'], self._struct['RIG']['main'], self._struct['RIG']['walk'], self._struct['RIG']['pivot'], type='UD')
-
+        
+        # END
         return True
         
 
 
         
 
-toto = root('position_TPL', 'walk_TPL', [['fly_PVT', 'fly_TPL']])
-
-toto.build()
+#exemple = root('position_TPL', 'walk_TPL', [['fly_PVT', 'fly_TPL']])
+#exemple.build()

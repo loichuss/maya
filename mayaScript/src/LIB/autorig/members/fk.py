@@ -1,11 +1,12 @@
 #
 #   Script create by Loic Huss
 #   Version 1.0
-#   Last Modification 06 dec 2011
+#   Last Modification 12 nov 2012
 #
-#   Fk bones
+#   Fk Module
 #
 
+import copy
 import pymel.core as pmc
 import pymel.core.datatypes as dt
 
@@ -23,7 +24,6 @@ import autorig.bone as arBone
 import autorig.tools.pickwalk as arPickwalk
 import autorig.settings as arParam
 
-import copy
 
 
 
@@ -279,7 +279,7 @@ class fk(object):
         # connect 2SKjnt together
         arBone.__connect2SK__(self._struct['2SK'])
         
-        # pickwalk attribut
+        # pickwalk attribute
         arPickwalk.setPickWalk(self._struct['RIG']['main'], type='UD')
         arPickwalk.setPickWalk(self._struct['RIG']['off'], type='UD')
         
@@ -294,13 +294,12 @@ class fk(object):
         framework['CONTROLS'][self.name+'_ctrls'] = self._struct['RIG']['main'][:-1]
         framework['CONTROLS'][self.name+'_ctrls'+'|'+self.name+'Sub_ctrls'] = self._struct['RIG']['off']
         
-        
-        
+        # END        
         return True
             
         
         
 
-toto = fk(name='myJnt', bones=['joint1_TPLjnt', 'joint2_TPLjnt', 'joint3_TPLjnt', 'joint4_TPLjnt', 'joint5_TPLjnt'], up='joint6_TPLjnt')
-toto.build()
+#exemple = fk(name='myJnt', bones=['joint1_TPLjnt', 'joint2_TPLjnt', 'joint3_TPLjnt', 'joint4_TPLjnt', 'joint5_TPLjnt'], up='joint6_TPLjnt')
+#exemple.build()
 
