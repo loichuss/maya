@@ -1,7 +1,7 @@
 #
 #   Script create by Loic Huss
 #   Version 1.0
-#   Last Modification 06 dec 2011
+#   Last Modification 12 nov 2012
 #
 #   Root Module
 #
