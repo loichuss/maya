@@ -3,30 +3,32 @@
 #   Version 1.0
 #   Last Modification 07 dec 2011
 #
-#   Arm
+#   Arm Module
 #
 
 import pymel.core as pmc
 import pymel.core.datatypes as dt
 
+import common.vPrint as vp
 import common.various as various
-import clean.clean as clean
+import clean
 import rig.matrix
 import rig.bone
 import rig.xfm as xfm
 import rig.attribut as attribut 
 import constrain.matrixConstrain as matrixConstrain
 
-import shapes.biblio as shapesBiblio
-import shapes.shape as arShape
-import bones.bone as bn
-import tools.ribbon as ribbon
-import attributs.attribut as arAttributs
-import tools.hierarchy as arHierarchy
-import tools.pickwalk as arPickwalk
+
+import autorig.shape.biblio as arShapeBiblio
+import autorig.shape as arShape
+import autorig.bone as arBone
+import autorig.tools.ribbon as arRibbon
+import autorig.tools.hierarchy as arHierarchy
+import autorig.tools.pickwalk as arPickwalk
 
 
-reload(ribbon)
+
+reload(arRibbon)
 
 
 class arm():
@@ -77,6 +79,15 @@ class arm():
             self.bones2SK = []
         else:
             vp.vPrint('building %s will failed' % name, 1)
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
     
     
@@ -143,7 +154,7 @@ class arm():
             
             
             # connect 2SK jnt together
-            bn.__connect2SK__(self.bones2SK)
+            arBone.__connect2SK__(self.bones2SK)
     
     
     
@@ -158,7 +169,7 @@ class arm():
         self.gp['shoulder'] = pmc.createNode('transform', name=self.shoulderTPL.name().replace('_TPLjnt', '_Skel_grp'), parent=self.gp['skel'])
         
         # create first control
-        shoulder = shapesBiblio.cube(name=self.shoulderTPL.replace('_TPLjnt', ''), color=self.colorOne, parent=self.gp['shoulder'])
+        shoulder = arShapeBiblio.cube(name=self.shoulderTPL.replace('_TPLjnt', ''), color=self.colorOne, parent=self.gp['shoulder'])
         
         # place this last
         shoulder.setTransformation ( rig.matrix.vecToMat( dir=(self.armTPL[0].getTranslation(space='world') - self.shoulderTPL.getTranslation(space='world')), up=dt.Vector(0,1,0), pos=self.shoulderTPL.getTranslation(space='world'), order='xyz' ) )
@@ -168,8 +179,8 @@ class arm():
         arShape.scaleShape(shoulder.getShape(), self.shoulderTPL, self.armTPL[0])
         
         # create offset control
-        shoulderOff = shapesBiblio.cube(name=self.shoulderTPL.replace('_TPLjnt', 'Offset'), color=self.colorTwo, parent=shoulder)
-        self.bones2SK.append( bn.create2SK(shoulder.name(), shoulderOff) )
+        shoulderOff = arShapeBiblio.cube(name=self.shoulderTPL.replace('_TPLjnt', 'Offset'), color=self.colorTwo, parent=shoulder)
+        self.bones2SK.append( arBone.create2SK(shoulder.name(), shoulderOff) )
         
         # create attributs
         shoulder.rotateOrder.setKeyable(True)
@@ -326,11 +337,11 @@ class arm():
             pmc.pointConstraint(self.arm[i], subRollGrp, name=subRollGrp.name()+'_ptCst', maintainOffset=False)
             
             # create shape and 2SK
-            mainSetsList.append( shapesBiblio.circleX(name=self.arm[i].name()+'Roll', color=self.colorOne, parent=subRollGrp) )
-            subSetsList.append(  shapesBiblio.rhombusX(name=self.arm[i].name()+'SubRoll', color=self.colorTwo, parent=mainSetsList[-1]) )
+            mainSetsList.append( arShapeBiblio.circleX(name=self.arm[i].name()+'Roll', color=self.colorOne, parent=subRollGrp) )
+            subSetsList.append(  arShapeBiblio.rhombusX(name=self.arm[i].name()+'SubRoll', color=self.colorTwo, parent=mainSetsList[-1]) )
             rollTmp = [mainSetsList[-1], subSetsList[-1]]
             clean.__lockHideTransform__(rollTmp[-2], channel=['ry', 'rz', 's', 'v'])
-            jnt = bn.create2SK(rollTmp[-2].name(), rollTmp[-1])
+            jnt = arBone.create2SK(rollTmp[-2].name(), rollTmp[-1])
             
             # pickwalk
             arPickwalk.setPickWalk([rollTmp[-2], rollTmp[-1]], type='LR')
@@ -404,7 +415,7 @@ class arm():
             self.armFk[i].rotateOrder.set(3)
             
             # add shape to joint
-            tmp = shapesBiblio.cube(name=self.armFk[i], color=self.colorOne)
+            tmp = arShapeBiblio.cube(name=self.armFk[i], color=self.colorOne)
             pmc.parent(tmp.getShape(), self.armFk[i], shape=True, relative=True)
             pmc.delete(tmp)
             
@@ -446,7 +457,7 @@ class arm():
         
         
         # create ik controlor
-        ikCtrl = shapesBiblio.circleX(name=self.wristTPL.replace('_TPLjnt', 'Ctrl'), color=self.colorOne, parent=self.gp['arm'])
+        ikCtrl = arShapeBiblio.circleX(name=self.wristTPL.replace('_TPLjnt', 'Ctrl'), color=self.colorOne, parent=self.gp['arm'])
         matrixConstrain.snapObject(self.armIk[-1], ikCtrl)
         xfm.__xfm__(ikCtrl)
         # orient constrain to control the latest joint on arm
@@ -464,7 +475,7 @@ class arm():
         
         
         # pole vector
-        pvCtrl = shapesBiblio.diamondSpike(name=self.armTPL[0].replace('_TPLjnt', '_pv'), color=self.colorOne, parent=self.gp['ctrl'])
+        pvCtrl = arShapeBiblio.diamondSpike(name=self.armTPL[0].replace('_TPLjnt', '_pv'), color=self.colorOne, parent=self.gp['ctrl'])
         # place
         pvCtrl.setTransformation( rig.matrix.vecToMat( dir=(self.wristTPL.getTranslation(space='world') - self.armTPL[0].getTranslation(space='world')), up=(((self.armTPL[0].getTranslation(space='world') + self.wristTPL.getTranslation(space='world'))/2.0) - self.armTPL[len(self.armTPL)/2].getTranslation(space='world')), pos=self.armTPL[len(self.armTPL)/2].getTranslation(space='world'), order='xyz' ) )
         pvCtrl.translateBy([0,-((self.length / len(self.armTPL)) * 1.5),0], space='preTransform')
@@ -753,7 +764,7 @@ class arm():
         # ribbon bones + visibility sub control
         for i in range(len(self.armTPL)):
             # create ribbon
-            rib     = ribbon.createRibbon(self.arm[i].name()+'_rib', parent=self.gp['rib'], colorOne=self.colorTwo, colorTwo=self.colorTwo, type='spline')
+            rib     = arRibbon.createRibbon(self.arm[i].name()+'_rib', parent=self.gp['rib'], colorOne=self.colorTwo, colorTwo=self.colorTwo, type='spline')
             ribCtrl = rib.build()
             
             # keep data for sets
