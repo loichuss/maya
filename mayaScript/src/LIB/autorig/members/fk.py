@@ -25,7 +25,6 @@ import autorig.settings as arParam
 
 import copy
 
-reload(arParam)
 
 
 
@@ -33,7 +32,7 @@ class fk(object):
     def __init__(self, name, bones, parent=None, up=dt.Vector(0,1,0), colorOne=17, colorTwo=21):
         
         """
-        Create an fk joints module
+        Create an FK joints module
             - name           : the name for the module
             - bones          : a list of bone (could be a pymel object or a string)
             - parent         : the father of the module (could be a pymel object or a string)
@@ -42,25 +41,23 @@ class fk(object):
             - colorTwo       : the color of the sub shape
         """
                 
-        
-        # use to see if each object given are joint type
+        # variables
         self.check       = True
         self.name        = name
         self.colorOne    = colorOne
         self.colorTwo    = colorTwo
+        
+        # hidden variables
         self._parent     = None
         self._up         = None
-        self._bones      = copy.copy(arParam.BONES)
+        self._struct     = copy.copy(arParam.STRUCT)
 
         
-        # check bones parent and up
-        self.bones       = bones
+        # properties variables
+        self.bonesTPL    = bones
         self.parent      = parent
         self.up          = up
-        
-        
-        # keep variable
-        self.gp          = {}
+        self.grp         = self._struct['GRP']
         
 
 
@@ -71,15 +68,15 @@ class fk(object):
     #             #
     
     @property
-    def bones(self):
-        return self._bones['TPL']
+    def bonesTPL(self):
+        return self._struct['TPL']['main']
 
-    @bones.setter
-    def bones(self, bones):
+    @bonesTPL.setter
+    def bonesTPL(self, bones):
         """check if the bones that we receive are available"""
         
         # create the dictionary
-        self._bones['TPL'] = []
+        self._struct['TPL']['main'] = []
         
         # create a list is we got only one element
         if (isinstance(bones, list))==False:
@@ -91,7 +88,7 @@ class fk(object):
             tmp = various.checkObj(bones[i], type=['joint'])
             
             if tmp!=None:
-                self._bones['TPL'].append(tmp)
+                self._struct['TPL']['main'].append(tmp)
             else:
                 vp.vPrint('template does\'nt exist %s, skip' % (bones[i]), 1)
                 self.check = False
@@ -99,9 +96,9 @@ class fk(object):
         # rename properly the template
         self.renameTemplate()
         
-    @bones.deleter
-    def bones(self):
-        self._bones['TPL'] = []
+    @bonesTPL.deleter
+    def bonesTPL(self):
+        self._struct['TPL']['main'] = []
     
     
     
@@ -165,14 +162,14 @@ class fk(object):
                 return
             else:
                 # rename properly
-                if various.renameObject(up, prefix=arParam.TPL_NAME)==False:
+                if various.renameObject(up, prefix=arParam.TPL_NAME_JNT)==False:
                     self.check = False
                     return
                 
         # create vector according to object up
         if up:
-            if len(self._bones['TPL']):
-                self._up = (up.getTranslation(space='world') - self._bones['TPL'][0].getTranslation(space='world'))
+            if len(self._struct['TPL']['main']):
+                self._up = (up.getTranslation(space='world') - self._struct['TPL']['main'][0].getTranslation(space='world'))
                 self._up.normalize()
 
     @up.deleter
@@ -189,9 +186,9 @@ class fk(object):
     
     def renameTemplate(self):
         # rename template if badly done
-        for i in range(len(self._bones['TPL'])):
+        for i in range(len(self._struct['TPL']['main'])):
             # rename properly
-            if not various.renameObject(self._bones['TPL'][i], prefix=arParam.TPL_NAME):
+            if not various.renameObject(self._struct['TPL']['main'][i], prefix=arParam.TPL_NAME_JNT):
                 self.check = False
 
 
@@ -204,116 +201,106 @@ class fk(object):
 
 
     @arParam.completion()
-    def build(self, hierarchy, _work):
+    def build(self, hierarchy=None, framework=None):
         """build FK"""
-        
-        if not self.check:
-            vp.vPrint('missing or wrong data in module, skip building process', 1)
-            return False
-        
         
         
         # create main group then parent it
-        self.gp['main'] = pmc.createNode('transform', name=self.name+'_grp')
+        self.grp['main'] = pmc.createNode('transform', name=self.name+'_grp')
         if self.parent:
-            self.gp['main'].setParent(self.parent)
+            self.grp['main'].setParent(self.parent)
         else:
-            self.gp['main'].setParent(hierarchy['SCALEOFFSET'])
+            self.grp['main'].setParent(hierarchy['SCALEOFFSET'])
         
         
-        # lock attribut from group
-        clean.__lockHideTransform__(self.gp['main'], channel=['t', 'r', 's'])
+        # lock attribute from group
+        clean.__lockHideTransform__(self.grp['main'], channel=['t', 'r', 's'])
         
         
         # create bones
-        self._bones['RIG'] = {'main':[], 'off':[]}
-        self._bones['2SK'] = []
-        for i in range(len(self._bones['TPL'])):
+        self._struct['RIG'] = {'main':[], 'off':[]}
+        self._struct['2SK'] = []
+        for i in range(len(self._struct['TPL']['main'])):
             
             # create joint
-            self._bones['RIG']['main'].append( pmc.createNode('joint', name=self._bones['TPL'][i].replace(arParam.TPL_NAME, '') ) )
-            if i < (len(self._bones['TPL'])-1):
-                print 't', i
-                self._bones['RIG']['main'][i].setTransformation( rig.matrix.vecToMat( dir=(self._bones['TPL'][i+1].getTranslation(space='world') - self._bones['TPL'][i].getTranslation(space='world')), up=self.up, pos=self._bones['TPL'][i].getTranslation(space='world'), order='xyz' ) )
+            self._struct['RIG']['main'].append( pmc.createNode('joint', name=self._struct['TPL']['main'][i].replace(arParam.TPL_NAME_JNT, '') ) )
+            if i < (len(self._struct['TPL']['main'])-1):
+                self._struct['RIG']['main'][i].setTransformation( rig.matrix.vecToMat( dir=(self._struct['TPL']['main'][i+1].getTranslation(space='world') - self._struct['TPL']['main'][i].getTranslation(space='world')), up=self.up, pos=self._struct['TPL']['main'][i].getTranslation(space='world'), order='xyz' ) )
             else:
-                self._bones['RIG']['main'][i].setTransformation( rig.matrix.vecToMat( dir=(self._bones['TPL'][i].getTranslation(space='world') - self._bones['TPL'][i-1].getTranslation(space='world')), up=self.up, pos=self._bones['TPL'][i].getTranslation(space='world'), order='xyz' ) )
+                self._struct['RIG']['main'][i].setTransformation( rig.matrix.vecToMat( dir=(self._struct['TPL']['main'][i].getTranslation(space='world') - self._struct['TPL']['main'][i-1].getTranslation(space='world')), up=self.up, pos=self._struct['TPL']['main'][i].getTranslation(space='world'), order='xyz' ) )
 
-            rig.bone.__rotateToOrient__(self._bones['RIG']['main'][i])
+            rig.bone.__rotateToOrient__(self._struct['RIG']['main'][i])
             
             # set parent 
             if i:
-                self._bones['RIG']['main'][i].setParent( self._bones['RIG']['main'][i-1] )
+                self._struct['RIG']['main'][i].setParent( self._struct['RIG']['main'][i-1] )
             else:
-                self._bones['RIG']['main'][i].setParent( self.gp['main'] )
+                self._struct['RIG']['main'][i].setParent( self.grp['main'] )
             
             
             # add shape to joint
             tmp = None
             if i==0:
-                tmp = arShapeBiblio.cubeCircle(name=self._bones['RIG']['main'][i], color=self.colorOne)
-            elif i < (len(self._bones['TPL'])-1):
-                    print 'b', i
-                    tmp = arShapeBiblio.cube(name=self._bones['RIG']['main'][i], color=self.colorOne)
+                tmp = arShapeBiblio.cubeCircle(name=self._struct['RIG']['main'][i], color=self.colorOne)
+            elif i < (len(self._struct['TPL']['main'])-1):
+                    tmp = arShapeBiblio.cube(name=self._struct['RIG']['main'][i], color=self.colorOne)
 
             
             if tmp:    
-                pmc.parent(tmp.getShape(), self._bones['RIG']['main'][i], shape=True, relative=True)
+                pmc.parent(tmp.getShape(), self._struct['RIG']['main'][i], shape=True, relative=True)
                 pmc.delete(tmp)
                 
                 # scale shape
-                arShape.scaleShape(self._bones['RIG']['main'][i].getShape(), self._bones['RIG']['main'][i], self._bones['TPL'][i+1])
+                arShape.scaleShape(self._struct['RIG']['main'][i].getShape(), self._struct['RIG']['main'][i], self._struct['TPL']['main'][i+1])
     
             # clean channel box
-            self._bones['RIG']['main'][i].rotateOrder.setKeyable(True)
-            clean.__lockHideTransform__(self._bones['RIG']['main'][i], channel=['v', 'radi'])
+            self._struct['RIG']['main'][i].rotateOrder.setKeyable(True)
+            clean.__lockHideTransform__(self._struct['RIG']['main'][i], channel=['v', 'radi'])
             
             # add xfm
-            xfm.__xfm__(self._bones['RIG']['main'][i], type='joint')
+            xfm.__xfm__(self._struct['RIG']['main'][i], type='joint')
             
             # add offset
-            self._bones['RIG']['off'].append( arShapeBiblio.rhombusX(name=self._bones['RIG']['main'][i]+'_off', color=self.colorTwo, parent=self._bones['RIG']['main'][i]) )
-            self._bones['2SK'].append( arBone.create2SK(self._bones['RIG']['main'][i].name(), self._bones['RIG']['off'][i]) )
+            self._struct['RIG']['off'].append( arShapeBiblio.rhombusX(name=self._struct['RIG']['main'][i]+'_off', color=self.colorTwo, parent=self._struct['RIG']['main'][i]) )
+            self._struct['2SK'].append( arBone.create2SK(self._struct['RIG']['main'][i].name(), self._struct['RIG']['off'][i]) )
         
         
-        # create attribut
-        attribut.addAttrSeparator(self._bones['RIG']['main'][0])
-        pmc.addAttr(self._bones['RIG']['main'][0], longName='offsetVisible', attributeType='enum', enumName='No:Yes', keyable=False, hidden=False)
-        self._bones['RIG']['main'][0].offsetVisible.showInChannelBox(True)
+        # create attribute
+        attribut.addAttrSeparator(self._struct['RIG']['main'][0])
+        pmc.addAttr(self._struct['RIG']['main'][0], longName='offsetVisible', attributeType='enum', enumName='No:Yes', keyable=False, hidden=False)
+        self._struct['RIG']['main'][0].offsetVisible.showInChannelBox(True)
         
-        for i in range(len(self._bones['RIG']['off'])):
-            self._bones['RIG']['off'][i].visibility.setLocked(False)
-            self._bones['RIG']['main'][0].offsetVisible >> self._bones['RIG']['off'][i].visibility
-            self._bones['RIG']['off'][i].visibility.setLocked(True)
+        for i in range(len(self._struct['RIG']['off'])):
+            self._struct['RIG']['off'][i].visibility.setLocked(False)
+            self._struct['RIG']['main'][0].offsetVisible >> self._struct['RIG']['off'][i].visibility
+            self._struct['RIG']['off'][i].visibility.setLocked(True)
         
         
         # connect 2SKjnt together
-        arBone.__connect2SK__(self._bones['2SK'])
+        arBone.__connect2SK__(self._struct['2SK'])
         
         # pickwalk attribut
-        arPickwalk.setPickWalk(self._bones['RIG']['main'], type='UD')
-        arPickwalk.setPickWalk(self._bones['RIG']['off'], type='UD')
+        arPickwalk.setPickWalk(self._struct['RIG']['main'], type='UD')
+        arPickwalk.setPickWalk(self._struct['RIG']['off'], type='UD')
         
         alternate = []
-        for i in range(len(self._bones['RIG']['main'])):
-            alternate.append(self._bones['RIG']['main'][i])
-            alternate.append(self._bones['RIG']['off'][i])
+        for i in range(len(self._struct['RIG']['main'])):
+            alternate.append(self._struct['RIG']['main'][i])
+            alternate.append(self._struct['RIG']['off'][i])
         arPickwalk.setPickWalk(alternate, type='LR')
         
         
         # create sets
-        _work['CONTROLS'][self.name+'_ctrls'] = self._bones['RIG']['main'][:-1]
-        _work['CONTROLS'][self.name+'_ctrls'+'|'+self.name+'Sub_ctrls'] = self._bones['RIG']['off']
+        framework['CONTROLS'][self.name+'_ctrls'] = self._struct['RIG']['main'][:-1]
+        framework['CONTROLS'][self.name+'_ctrls'+'|'+self.name+'Sub_ctrls'] = self._struct['RIG']['off']
         
-
         
-        # deselect
-        pmc.select(clear=True)
         
         return True
             
         
         
 
-#toto = fk(name='myJnt', bones=['joint1_TPLjnt', 'joint2_TPLjnt', 'joint3_TPLjnt', 'joint4_TPLjnt', 'joint5_TPLjnt'], up='joint6_TPLjnt')
-#toto.build()
+toto = fk(name='myJnt', bones=['joint1_TPLjnt', 'joint2_TPLjnt', 'joint3_TPLjnt', 'joint4_TPLjnt', 'joint5_TPLjnt'], up='joint6_TPLjnt')
+toto.build()
 
